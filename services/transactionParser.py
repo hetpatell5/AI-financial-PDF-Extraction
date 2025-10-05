@@ -1,17 +1,15 @@
 import re
 from datetime import datetime
-import spacy
+# Removing spaCy dependency
+# import spacy
 from dateutil import parser as date_parser
 import hashlib
 
 class TransactionParser:
     def __init__(self):
-        # Load spaCy model for NLP
-        try:
-            self.nlp = spacy.load("en_core_web_sm")
-        except:
-            print("Warning: spaCy model not loaded. Install with: python -m spacy download en_core_web_sm")
-            self.nlp = None
+        # Removed spaCy dependency
+        self.nlp = None
+        print("Using simplified text processing without spaCy")
         
         # Common transaction keywords
         self.debit_keywords = ['debit', 'withdrawal', 'payment', 'paid', 'purchase', 'transfer to', 'atm']
