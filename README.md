@@ -436,11 +436,6 @@ self.date_patterns = [
 
 This project is licensed under the MIT License.
 
-## 👥 Contact
-
-For queries:
-- Rutal Jadav: +91 84695 56520
-- Jay Karasariya: +91 81558 55663
 
 ## 🎓 Assignment Completion Checklist
 
