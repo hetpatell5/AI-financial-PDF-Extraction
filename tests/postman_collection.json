@@ -1,0 +1,215 @@
+{
+  "info": {
+    "name": "Financial PDF Extraction API",
+    "description": "API endpoints for querying financial transactions",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "user_id",
+      "value": "user123",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/health",
+          "host": ["{{base_url}}"],
+          "path": ["health"]
+        }
+      }
+    },
+    {
+      "name": "Get All Transactions",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/transactions/{{user_id}}?limit=50",
+          "host": ["{{base_url}}"],
+          "path": ["api", "transactions", "{{user_id}}"],
+          "query": [
+            {
+              "key": "limit",
+              "value": "50"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Get Transactions by Month",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/transactions/{{user_id}}/month/2024/12",
+          "host": ["{{base_url}}"],
+          "path": ["api", "transactions", "{{user_id}}", "month", "2024", "12"]
+        }
+      }
+    },
+    {
+      "name": "Get Transactions by Category",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/transactions/{{user_id}}/category/Food",
+          "host": ["{{base_url}}"],
+          "path": ["api", "transactions", "{{user_id}}", "category", "Food"]
+        }
+      }
+    },
+    {
+      "name": "Get Summary Statistics",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/transactions/{{user_id}}/summary",
+          "host": ["{{base_url}}"],
+          "path": ["api", "transactions", "{{user_id}}", "summary"]
+        }
+      }
+    },
+    {
+      "name": "Get All Categories",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/transactions/{{user_id}}/categories",
+          "host": ["{{base_url}}"],
+          "path": ["api", "transactions", "{{user_id}}", "categories"]
+        }
+      }
+    },
+    {
+      "name": "Filter by Date Range",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/transactions/{{user_id}}?startDate=2024-01-01&endDate=2024-12-31",
+          "host": ["{{base_url}}"],
+          "path": ["api", "transactions", "{{user_id}}"],
+          "query": [
+            {
+              "key": "startDate",
+              "value": "2024-01-01"
+            },
+            {
+              "key": "endDate",
+              "value": "2024-12-31"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Filter by Type (Debit)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/transactions/{{user_id}}?type=Debit",
+          "host": ["{{base_url}}"],
+          "path": ["api", "transactions", "{{user_id}}"],
+          "query": [
+            {
+              "key": "type",
+              "value": "Debit"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Filter by Amount Range",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/transactions/{{user_id}}?minAmount=1000&maxAmount=5000",
+          "host": ["{{base_url}}"],
+          "path": ["api", "transactions", "{{user_id}}"],
+          "query": [
+            {
+              "key": "minAmount",
+              "value": "1000"
+            },
+            {
+              "key": "maxAmount",
+              "value": "5000"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Import Transactions from JSON",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"filePath\": \"extracted/transactions_user123_20241005_120000.json\",\n  \"userId\": \"user123\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/transactions/import",
+          "host": ["{{base_url}}"],
+          "path": ["api", "transactions", "import"]
+        }
+      }
+    },
+    {
+      "name": "Add Single Transaction",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"test123\",\n  \"userId\": \"user123\",\n  \"date\": \"2024-10-05\",\n  \"description\": \"Test Transaction\",\n  \"amount\": 500,\n  \"type\": \"Debit\",\n  \"category\": \"Other\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/transactions",
+          "host": ["{{base_url}}"],
+          "path": ["api", "transactions"]
+        }
+      }
+    },
+    {
+      "name": "Delete User Transactions",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/transactions/{{user_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["api", "transactions", "{{user_id}}"]
+        }
+      }
+    }
+  ]
+}
