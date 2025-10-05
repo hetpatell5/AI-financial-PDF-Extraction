@@ -2,8 +2,10 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
+const path = require('path');
 const connectDB = require('../config/dbConfig');
 const transactionRoutes = require('./routes/transactions');
+const uploadRoutes = require('./routes/upload');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -12,6 +14,9 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+
+// Serve static files from public directory
+app.use(express.static(path.join(__dirname, '../public')));
 
 // Request logging middleware
 app.use((req, res, next) => {
@@ -22,19 +27,12 @@ app.use((req, res, next) => {
 // Connect to database
 connectDB();
 
-// Health check route
+// Root route - serve home page
 app.get('/', (req, res) => {
-  res.json({
-    success: true,
-    message: 'Financial PDF Extraction API',
-    version: '1.0.0',
-    endpoints: {
-      transactions: '/api/transactions',
-      health: '/health'
-    }
-  });
+  res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 
+// Health check route
 app.get('/health', (req, res) => {
   res.json({
     success: true,
@@ -46,6 +44,7 @@ app.get('/health', (req, res) => {
 
 // API Routes
 app.use('/api/transactions', transactionRoutes);
+app.use('/api/upload', uploadRoutes);
 
 // 404 handler
 app.use((req, res) => {
@@ -71,7 +70,8 @@ app.listen(PORT, () => {
   console.log('='.repeat(60));
   console.log(`✓ Server running on port ${PORT}`);
   console.log(`✓ Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`✓ API URL: http://localhost:${PORT}`);
+  console.log(`✓ Web Interface: http://localhost:${PORT}`);
+  console.log(`✓ API URL: http://localhost:${PORT}/api`);
   console.log(`✓ Health check: http://localhost:${PORT}/health`);
   console.log('='.repeat(60) + '\n');
 });
