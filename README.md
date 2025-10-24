@@ -435,20 +435,3 @@ self.date_patterns = [
 ## 📄 License
 
 This project is licensed under the MIT License.
-
-
-## 🎓 Assignment Completion Checklist
-
-- ✅ PDF data extraction with ML/NLP
-- ✅ Data cleaning & normalization
-- ✅ Database storage (MongoDB)
-- ✅ API for querying data
-- ✅ Multi-user support
-- ✅ Category classification
-- ✅ Duplicate detection
-- ✅ Structured JSON output
-- ✅ API documentation
-- ✅ Test suite
-- ✅ Postman collection
-- ✅ Comprehensive README
-- ✅ Git repository with proper structure# AI-financial-PDF-Extraction
