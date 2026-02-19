@@ -180,4 +180,24 @@ router.post('/import', async (req, res) => {
     });
   }
 });
+// DELETE /api/transactions/:userId - Delete all transactions for a user
+router.delete('/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const result = await dbService.deleteUserTransactions(userId);
+
+    if (result.success) {
+      res.json({
+        success: true,
+        message: `Deleted ${result.deleted} transactions`,
+        deleted: result.deleted
+      });
+    } else {
+      res.status(500).json({ success: false, message: result.message });
+    }
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 module.exports = router;

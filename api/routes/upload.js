@@ -63,13 +63,35 @@ router.post('/', upload.single('pdf'), async (req, res) => {
     }
 
     // Import transactions to database
-    const result = await dbService.insertTransactions(transactions);
+    console.log(`[DB] Attempting to insert ${transactions.length} transactions for userId: ${userId}`);
+    let result;
+    try {
+      result = await dbService.insertTransactions(transactions);
+      console.log(`[DB] Insert result: inserted=${result.inserted}, duplicates=${result.duplicates}, errors=${result.errors}`);
+    } catch (dbError) {
+      console.error('[DB] insertTransactions threw an error:', dbError);
+      throw new Error('Database insert failed: ' + dbError.message);
+    }
+
+    // If 0 were inserted and 0 duplicates, something went wrong silently
+    if (result.inserted === 0 && result.duplicates === 0 && transactions.length > 0) {
+      console.warn('[DB] WARNING: 0 transactions inserted and 0 duplicates — possible DB connection issue!');
+      console.warn('[DB] Errors count:', result.errors);
+    }
 
     // Clean up uploaded file
     try {
       await fs.unlink(filePath);
     } catch (err) {
-      console.error('Error deleting file:', err);
+      console.error('Error deleting uploaded file:', err);
+    }
+
+    // Only report error if nothing was inserted and there were no duplicates
+    if (result.inserted === 0 && result.duplicates === 0 && transactions.length > 0) {
+      return res.status(500).json({
+        success: false,
+        message: `Extracted ${transactions.length} transactions but failed to save any to the database. Check server logs.`
+      });
     }
 
     // Calculate statistics
@@ -77,7 +99,7 @@ router.post('/', upload.single('pdf'), async (req, res) => {
 
     res.json({
       success: true,
-      message: 'PDF processed successfully',
+      message: `PDF processed successfully. ${result.inserted} transactions saved (${result.duplicates} duplicates skipped).`,
       data: {
         fileName: fileName,
         totalTransactions: transactions.length,
@@ -168,7 +190,14 @@ router.post('/batch', upload.array('pdfs', 10), async (req, res) => {
 // Helper function to process PDF using Python script
 function processPDF(filePath, userId) {
   return new Promise((resolve, reject) => {
-    const pythonProcess = spawn('python', ['process_pdf.py', filePath, userId]);
+    // Determine valid python executable
+    const venvPythonWin = path.join(process.cwd(), 'venv', 'Scripts', 'python.exe');
+    const venvPythonUnix = path.join(process.cwd(), 'venv', 'bin', 'python');
+
+    // Let's use a simpler approach: passed in python path or default
+    // We will hardcode checking for Windows venv first since we know user is on Windows.
+    const fsSync = require('fs');
+    const pythonProcess = spawn(fsSync.existsSync(venvPythonWin) ? venvPythonWin : 'python', ['process_pdf.py', filePath, userId]);
 
     let output = '';
     let errorOutput = '';
@@ -194,12 +223,12 @@ function processPDF(filePath, userId) {
         // Find the generated JSON file
         const extractedDir = 'extracted';
         const files = await fs.readdir(extractedDir);
-        
+
         // Find the most recent file for this user
-        const userFiles = files.filter(f => 
+        const userFiles = files.filter(f =>
           f.startsWith(`transactions_${userId}`) && f.endsWith('.json')
         );
-        
+
         if (userFiles.length === 0) {
           reject(new Error('No transaction file generated'));
           return;

@@ -65,7 +65,8 @@ def process_pdf(pdf_path, user_id):
         parser = TransactionParser()
         transactions = []
         
-        # Try table-based extraction first
+        # Try table-based extraction first (PREFERRED for structured data)
+        table_transactions = []
         if extracted_data['tables']:
             print("-> Attempting table-based extraction...")
             table_data = extractor.extract_from_tables()
@@ -78,24 +79,51 @@ def process_pdf(pdf_path, user_id):
             else:
                 print("  No structured table data found")
         
-        # Also try text-based extraction
-        print("-> Attempting text-based extraction...")
-        text_lines = extractor.get_text_lines()
-        print(f"  Processing {len(text_lines)} text lines")
+        # Also try text-based extraction if table results seem incomplete
+        # BUT: Use smarter deduplication to avoid double-counting
+        # Text extraction helps find transactions that pdfplumber missed in table form
+        expected_min_transactions = 25  # Use text if tables gave <25 transactions
         
-        text_transactions = parser.parse_transactions_from_text(text_lines, user_id)
-        
-        # Merge and deduplicate transactions
-        existing_ids = {t['id'] for t in transactions}
-        new_count = 0
-        
-        for trans in text_transactions:
-            if trans['id'] not in existing_ids:
+        if len(table_transactions) < expected_min_transactions:
+            print(f"-> Attempting text-based extraction (table gave {len(table_transactions)} < {expected_min_transactions})...")
+            text_lines = extractor.get_text_lines()
+            print(f"  Processing {len(text_lines)} text lines")
+            
+            text_transactions = parser.parse_transactions_from_text(text_lines, user_id)
+            
+            # Smarter deduplication:
+            # 1. If same (date, amount) - definitely duplicate, skip
+            # 2. If same date but different amount - TRUST the table amount, skip text version
+            existing_ids = {t['id'] for t in transactions}
+            existing_date_amounts = {(t['date'], t['amount']) for t in transactions}
+            existing_dates = {t['date'] for t in transactions}  # Track dates for conflict resolution
+            new_count = 0
+            skipped_conflict = 0
+            
+            for trans in text_transactions:
+                signature = (trans['date'], trans['amount'])
+                
+                # Skip exact duplicates
+                if trans['id'] in existing_ids or signature in existing_date_amounts:
+                    continue
+                
+                # If this date already exists in tables (different amount), skip
+                # Trust table extraction for amounts when dates match
+                if trans['date'] in existing_dates:
+                    skipped_conflict += 1
+                    continue
+                    
+                # This is a genuinely new transaction from text
                 transactions.append(trans)
                 existing_ids.add(trans['id'])
+                existing_date_amounts.add(signature)
+                existing_dates.add(trans['date'])
                 new_count += 1
+            
+            print(f"[OK] Extracted {len(text_transactions)} from text ({new_count} new, {skipped_conflict} date conflicts skipped)")
+        else:
+            print(f"-> Skipping text extraction (table gave {len(table_transactions)} >= {expected_min_transactions})")
         
-        print(f"[OK] Extracted {len(text_transactions)} transactions from text ({new_count} unique)")
         print(f"[OK] Total unique transactions: {len(transactions)}")
         
         # Check if we found any transactions
@@ -121,7 +149,14 @@ def process_pdf(pdf_path, user_id):
         print("[OK] Categories assigned to all transactions")
         
         # Step 4: Sort transactions by date (newest first)
-        transactions.sort(key=lambda x: x['date'], reverse=True)
+        # Secondary sort: Opening Balance should be "oldest" (last in descending)
+        def sort_key(t):
+            date_val = t['date']
+            # If description contains 'opening balance', treat it as smaller (older) transaction on that day
+            is_opening = 1 if 'opening balance' in t['description'].lower() else 2
+            return (date_val, is_opening)
+            
+        transactions.sort(key=sort_key, reverse=True)
         print("[OK] Transactions sorted by date")
         
         # Step 5: Save to JSON file

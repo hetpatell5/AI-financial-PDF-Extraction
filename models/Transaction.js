@@ -56,20 +56,20 @@ transactionSchema.index({ userId: 1, type: 1 });
 transactionSchema.index({ userId: 1, date: -1, category: 1 });
 
 // Virtual for formatted amount
-transactionSchema.virtual('formattedAmount').get(function() {
+transactionSchema.virtual('formattedAmount').get(function () {
   return `₹${this.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 });
 
 // Method to check for duplicate
-transactionSchema.statics.isDuplicate = async function(transactionId) {
+transactionSchema.statics.isDuplicate = async function (transactionId) {
   const exists = await this.findOne({ id: transactionId });
   return !!exists;
 };
 
 // Method to get user statistics
-transactionSchema.statics.getUserStats = async function(userId, startDate, endDate) {
+transactionSchema.statics.getUserStats = async function (userId, startDate, endDate) {
   const match = { userId };
-  
+
   if (startDate || endDate) {
     match.date = {};
     if (startDate) match.date.$gte = new Date(startDate);
@@ -105,7 +105,19 @@ transactionSchema.statics.getUserStats = async function(userId, startDate, endDa
     }
   });
 
-  result.netAmount = result.totalCredit - result.totalDebit;
+  // Get closing balance from the last transaction (most recent by date)
+  const lastTransaction = await this.findOne(match)
+    .sort({ date: -1, _id: -1 })
+    .select('balance');
+
+  if (lastTransaction && lastTransaction.balance) {
+    // Use the actual closing balance from the bank statement
+    result.netAmount = lastTransaction.balance;
+  } else {
+    // Fallback to calculated difference if no balance available
+    result.netAmount = result.totalCredit - result.totalDebit;
+  }
+
   return result;
 };
 
