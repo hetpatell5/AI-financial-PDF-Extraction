@@ -20,19 +20,20 @@ A full-stack system combining Python-based PDF parsing with a Node.js REST API a
 
 ## Overview
 
-This project automates the extraction and analysis of financial transactions from PDF bank statements. It uses dual extraction strategies (table-based and text-based) to handle varied PDF formats, classifies each transaction into a meaningful category, persists data in MongoDB, and surfaces everything through a REST API and a glassmorphism-styled web dashboard.
+This project automates the extraction and analysis of financial transactions from PDF bank statements. It uses dual extraction strategies (table-based and text-based) to handle varied PDF formats, classifies each transaction into a meaningful category using keyword-based rules, persists data in MongoDB, and surfaces everything through a REST API and a glassmorphism-styled web dashboard.
 
 ---
 
 ## Features
 
 - **Dual PDF Extraction** — Attempts structured table extraction first via `pdfplumber`; falls back to regex-based text parsing for non-tabular PDFs
-- **Smart Categorisation** — Automatically assigns categories (Shopping, Bills, Transfer, Education, etc.) based on transaction description patterns
+- **Smart Categorisation** — Automatically assigns categories (Shopping, Bills, Transfer, Education, etc.) based on keyword matching against transaction descriptions
 - **Duplicate Detection** — MD5-based transaction IDs prevent re-importing the same data
 - **Multi-User Isolation** — All data is scoped to a `userId`; users never see each other's transactions
-- **REST API** — Full CRUD with filtering by date, category, type, and amount range
+- **REST API** — Full CRUD with filtering by date, category, type, amount range, and custom sorting
 - **Interactive Dashboard** — Chart.js visualisations, category breakdown table, paginated transaction list, and date/category filters
 - **Web Upload Interface** — Drag-and-drop PDF upload with real-time processing feedback
+- **Batch Processing** — Upload and process up to 10 PDFs in one request via the batch endpoint
 
 ---
 
@@ -41,7 +42,7 @@ This project automates the extraction and analysis of financial transactions fro
 | Layer | Technology |
 |---|---|
 | PDF Parsing | Python, pdfplumber, PyMuPDF |
-| NLP / ML | spaCy, scikit-learn, transformers |
+| Transaction Parsing | regex, python-dateutil, pandas |
 | Backend API | Node.js, Express.js |
 | Database | MongoDB (Mongoose ODM) |
 | Frontend | Vanilla HTML/CSS/JS, Chart.js |
@@ -61,7 +62,7 @@ AI-financial-PDF-Extraction/
 │       └── transactions.js         # Transaction CRUD & analytics endpoints
 │
 ├── services/
-│   ├── pdfExtractor.py             # PDF text and table extraction
+│   ├── pdfExtractor.py             # PDF text and table extraction (pdfplumber + PyMuPDF)
 │   ├── transactionParser.py        # Transaction row parsing & date detection
 │   ├── categoryClassifier.py       # Keyword-based category assignment
 │   └── databaseService.js          # MongoDB query abstraction layer
@@ -80,9 +81,6 @@ AI-financial-PDF-Extraction/
 │
 ├── config/
 │   └── dbConfig.js                 # MongoDB connection handler
-│
-├── models/
-│   └── Transaction.js              # MongoDB schema
 │
 ├── tests/
 │   ├── api-test.js                 # Automated API tests
@@ -131,9 +129,6 @@ source venv/bin/activate
 
 # Install Python dependencies
 pip install -r requirements.txt
-
-# Download the spaCy language model
-python -m spacy download en_core_web_sm
 ```
 
 ---
@@ -186,10 +181,14 @@ The application will be available at `http://localhost:3000`.
 ### CLI — Process a PDF Directly
 
 ```bash
+# Single PDF
 python process_pdf.py path/to/statement.pdf <userId>
+
+# Entire directory of PDFs
+python process_pdf.py path/to/pdf_directory <userId> --dir
 ```
 
-The extracted transactions are saved to `extracted/transactions_<userId>_<timestamp>.json`.
+The extracted transactions are saved to `extracted/transactions_<userId>_<pdfname>_<timestamp>.json`.
 
 ---
 
@@ -202,7 +201,16 @@ The extracted transactions are saved to `extracted/transactions_<userId>_<timest
 | Method | Endpoint | Description |
 |---|---|---|
 | `POST` | `/api/upload` | Upload a single PDF and process it |
-| `POST` | `/api/upload/batch` | Upload and process multiple PDFs |
+| `POST` | `/api/upload/batch` | Upload and process up to 10 PDFs at once |
+
+#### Upload Request (`POST /api/upload`)
+
+Form-data fields:
+
+| Field | Type | Description |
+|---|---|---|
+| `pdf` | `file` | The PDF bank statement (max 10 MB) |
+| `userId` | `string` | User identifier |
 
 ### Transactions
 
@@ -228,6 +236,8 @@ The extracted transactions are saved to `extracted/transactions_<userId>_<timest
 | `maxAmount` | `number` | Maximum transaction amount |
 | `limit` | `number` | Number of results (default: 100) |
 | `skip` | `number` | Offset for pagination |
+| `sortBy` | `string` | Field to sort by (e.g. `date`, `amount`) |
+| `order` | `asc` \| `desc` | Sort direction (default: `desc`) |
 
 ### Example Requests
 
@@ -240,6 +250,9 @@ curl "http://localhost:3000/api/transactions/john/summary"
 
 # Filter debits in October 2025
 curl "http://localhost:3000/api/transactions/john?type=Debit&startDate=2025-10-01&endDate=2025-10-31"
+
+# Get transactions sorted by amount (ascending)
+curl "http://localhost:3000/api/transactions/john?sortBy=amount&order=asc"
 
 # Import from an extracted JSON file
 curl -X POST http://localhost:3000/api/transactions/import \
@@ -297,8 +310,9 @@ curl -X POST http://localhost:3000/api/transactions/import \
 | `description` | `string` | Raw narration from the bank statement |
 | `amount` | `number` | Transaction amount (always positive) |
 | `type` | `Debit` \| `Credit` | Direction of the transaction |
-| `category` | `string` | Auto-assigned category |
-| `balance` | `number` | Closing balance after transaction |
+| `category` | `string` | Auto-assigned category (default: `Other`) |
+| `balance` | `number` | Closing balance after the transaction |
+| `raw_line` | `string` | Original raw line from the PDF (for debugging) |
 
 ---
 
@@ -319,7 +333,7 @@ curl -X POST http://localhost:3000/api/transactions/import \
 | Salary | Payroll, salary credits |
 | Other | Anything not matched above |
 
-To add a custom category, edit the `categories` dictionary in `services/categoryClassifier.py`.
+To add or modify a category, edit the `categories` dictionary in [`services/categoryClassifier.py`](services/categoryClassifier.py).
 
 ---
 
